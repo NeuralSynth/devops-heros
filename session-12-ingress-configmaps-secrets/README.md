@@ -8,12 +8,12 @@
 
 This exercise follows the instructor's ConfigMap, Secret, backend/frontend and path-routing lab using an isolated namespace and self-contained application code.
 
-| File | Purpose |
-| --- | --- |
-| [configmap.yaml](configmap.yaml) | Application settings and the frontend HTML file |
-| [secret.yaml](secret.yaml) | Clearly labelled disposable demonstration values |
-| [app.yaml](app.yaml) | Two frontend replicas, two Python API replicas, and ClusterIP Services |
-| [ingress.yaml](ingress.yaml) | Routes `homework.local/api` to the API and `/` to the frontend |
+| File                             | Purpose                                                                |
+|----------------------------------|------------------------------------------------------------------------|
+| [configmap.yaml](configmap.yaml) | Application settings and the frontend HTML file                        |
+| [secret.yaml](secret.yaml)       | Clearly labelled disposable demonstration values                       |
+| [app.yaml](app.yaml)             | Two frontend replicas, two Python API replicas, and ClusterIP Services |
+| [ingress.yaml](ingress.yaml)     | Routes `homework.local/api` to the API and `/` to the frontend         |
 
 ## ConfigMap and Secret
 

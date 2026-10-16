@@ -8,11 +8,11 @@
 
 ## Object comparison
 
-| Object | Responsibility | What happens when a Pod is deleted? |
-| --- | --- | --- |
-| Standalone Pod | Runs one group of containers | No controller recreates it |
-| ReplicaSet | Maintains a matching number of Pods | Creates a replacement with a new name/UID |
-| Deployment | Manages ReplicaSets, updates and revision history | Its ReplicaSet replaces the Pod |
+| Object         | Responsibility                                    | What happens when a Pod is deleted?       |
+|----------------|---------------------------------------------------|-------------------------------------------|
+| Standalone Pod | Runs one group of containers                      | No controller recreates it                |
+| ReplicaSet     | Maintains a matching number of Pods               | Creates a replacement with a new name/UID |
+| Deployment     | Manages ReplicaSets, updates and revision history | Its ReplicaSet replaces the Pod           |
 
 [objects.yaml](objects.yaml) defines all three with different selectors. This prevents a ReplicaSet from adopting the standalone Pod or a Deployment's Pods. Each selector matches its own Pod template labels.
 

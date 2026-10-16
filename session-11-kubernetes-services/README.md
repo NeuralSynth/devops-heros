@@ -8,13 +8,13 @@
 
 [services.yaml](services.yaml) creates a two-replica Nginx Deployment, a BusyBox client and five Service configurations.
 
-| Service | Behaviour | Exercise |
-| --- | --- | --- |
-| `web-clusterip` | Stable virtual IP inside the cluster | Resolve DNS, request HTTP, inspect EndpointSlices |
-| `web-nodeport` | Also exposes an allocated node port | Request the node's InternalIP and allocated NodePort |
-| `web-loadbalancer` | Requests an external load balancer | Inspect status and request its internal Service address |
-| `external-docs` | DNS CNAME to `kubernetes.io` | Inspect DNS; no proxy or selector is created |
-| `web-headless` | `clusterIP: None`, DNS returns Pod addresses | Compare DNS results to the ClusterIP Service |
+| Service            | Behaviour                                    | Exercise                                                |
+|--------------------|----------------------------------------------|---------------------------------------------------------|
+| `web-clusterip`    | Stable virtual IP inside the cluster         | Resolve DNS, request HTTP, inspect EndpointSlices       |
+| `web-nodeport`     | Also exposes an allocated node port          | Request the node's InternalIP and allocated NodePort    |
+| `web-loadbalancer` | Requests an external load balancer           | Inspect status and request its internal Service address |
+| `external-docs`    | DNS CNAME to `kubernetes.io`                 | Inspect DNS; no proxy or selector is created            |
+| `web-headless`     | `clusterIP: None`, DNS returns Pod addresses | Compare DNS results to the ClusterIP Service            |
 
 ## Exercise
 
