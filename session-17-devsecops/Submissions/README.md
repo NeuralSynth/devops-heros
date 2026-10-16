@@ -1,6 +1,6 @@
 # Session 17: DevSecOps — Security in the CI/CD Pipeline
 
-Hands-on verification of the DevSecOps pipeline in [`demo/.github/workflows/devsecops.yml`](../demo/.github/workflows/devsecops.yml), run **locally** stage by stage: unit tests → SAST → SCA → secret scanning → Docker build → image scan → run. Then the hand-off to Docker Hub, Kubernetes and GitHub Actions.
+Hands-on verification of the DevSecOps pipeline in [`demo/.github/workflows/devsecops.yml`](../demo/.github/workflows/devsecops.yml), run **locally** stage by stage: unit tests → SAST → SCA → secret scanning → Docker build → image scan → run. Then the full pipeline on GitHub Actions: GHCR push and Kubernetes (kind) deploy.
 
 **Environment:** Windows 11, PowerShell, Python 3.14, Docker 29.8, Docker Desktop Kubernetes. The scanners run from their official images (`zricethezav/gitleaks`, `aquasec/trivy`).
 
@@ -16,7 +16,7 @@ Hands-on verification of the DevSecOps pipeline in [`demo/.github/workflows/devs
 - [Part 5 — Docker Build](#part-5--docker-build)
 - [Part 6 — Container Image Scanning (Trivy)](#part-6--container-image-scanning-trivy)
 - [Part 7 — Run the Container](#part-7--run-the-container)
-- [Part 8 — Registry, Kubernetes & GitHub Actions (to complete)](#part-8--registry-kubernetes--github-actions-to-complete)
+- [Part 8 — GitHub Actions DevSecOps Pipeline: GHCR & Kubernetes](#part-8--github-actions-devsecops-pipeline-ghcr--kubernetes)
 - [Findings Summary](#findings-summary)
 
 ---
@@ -31,7 +31,7 @@ Hands-on verification of the DevSecOps pipeline in [`demo/.github/workflows/devs
       └── SCA  (pip-audit)
               │  all must pass
               ▼
-        Docker Build ──► Image Scan (Trivy HIGH/CRITICAL) ──► Push to Docker Hub ──► Deploy to Kubernetes
+        Docker Build ──► Image Scan (Trivy HIGH/CRITICAL) ──► Push to GHCR ──► Deploy to Kubernetes
 ```
 
 ---
@@ -149,24 +149,46 @@ docker logs python-web
 
 ---
 
-## Part 8 — Registry, Kubernetes & GitHub Actions (to complete)
+## Part 8 — GitHub Actions DevSecOps Pipeline: GHCR & Kubernetes
 
-These steps need personal accounts or a browser, so they're staged for completion:
+The `demo/` app was pushed to its own public repo so that `.github/workflows/devsecops.yml` sits at the repo root and runs on every push:
 
-1. ~~**Web UI screenshot**~~: done, see [Web Application in the Browser](#web-application-in-the-browser).
-2. **Docker Hub push:**
-   ```bash
-   docker login
-   docker tag session17-python:local <dockerhub-user>/python-web:latest
-   docker push <dockerhub-user>/python-web:latest
-   ```
-3. **Kubernetes deploy:** replace `nensiravaliya28/hey-cicd:__IMAGE_TAG__` in `demo/k8s/deployment.yaml` with your pushed image, then:
-   ```bash
-   kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
-   kubectl get pods,svc -l app=session17-python
-   ```
-   (NodePort `30001` → container port `5001`.)
-4. **GitHub Actions run:** push `demo/` to a repo where `.github/workflows/devsecops.yml` sits at the **repo root**. Replace the hardcoded Docker Hub user `nensiravaliya28` (login `username:` and the `hey-cicd` image name) with your own, add the `DOCKERHUB_TOKEN` repo secret, and screenshot the run → `SS/09-workflow-run.png`. The deploy job runs on a throwaway `kind` cluster inside the runner.
+**Repo:** <https://github.com/NeuralSynth/devops-heros-s17-devsecops> · **Image:** `ghcr.io/neuralsynth/session17-python`
+
+### Registry change: Docker Hub → GHCR
+
+The original workflow pushed to a hardcoded Docker Hub account (`nensiravaliya28/hey-cicd`) using a `DOCKERHUB_TOKEN` secret. It now pushes to **GitHub Container Registry** using the built-in `GITHUB_TOKEN`, so no extra credentials are needed:
+
+```yaml
+push:
+  permissions: { contents: read, packages: write }
+  steps:
+    - uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - run: docker push ghcr.io/neuralsynth/session17-python:${{ github.sha }}
+```
+
+`k8s/deployment.yaml` now uses `ghcr.io/neuralsynth/session17-python:__IMAGE_TAG__`. The deploy job gives its throwaway **kind** cluster an image-pull secret built from `GITHUB_TOKEN`, so it would work even if the package were private. GHCR names must be lowercase, hence `neuralsynth`.
+
+### Pipeline run — all 7 jobs green
+
+| Job | Result |
+| :--- | :--- |
+| Unit Tests | ✅ |
+| SAST - CodeQL | ✅ |
+| SCA - Dependency Scan (pip-audit) | ✅ No known vulnerabilities |
+| Docker Build | ✅ |
+| Image Scan - Trivy | ✅ report-only: 44 HIGH, 0 CRITICAL (OS packages, no fix yet) |
+| Push Image to GHCR | ✅ `:<sha>` and `:latest` |
+| Deploy to Kubernetes (kind) | ✅ rollout complete, `/api/status` → `"status": "running"` |
+
+![Part 8 — Workflow run](./SS/09-workflow-run.png)
+![Part 8 — Key log lines and the published GHCR image](./SS/10-ghcr-and-deploy-logs.png)
+
+The published image is public (it inherits the public repo's visibility) and can be pulled anonymously with `docker pull ghcr.io/neuralsynth/session17-python:latest`.
 
 ---
 
