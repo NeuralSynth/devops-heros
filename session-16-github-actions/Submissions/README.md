@@ -12,7 +12,7 @@ Verification of CI/CD concepts and the GitHub Actions workflows in this session:
 - [Part 2 — Pipeline Stages](#part-2--pipeline-stages)
 - [Part 3 — Build & Test Pipeline (lint + pytest)](#part-3--build--test-pipeline-lint--pytest)
 - [Part 4 — Demo App: Tests, Coverage & Build Artifact](#part-4--demo-app-tests-coverage--build-artifact)
-- [Part 5 — GitHub Actions Workflow Runs (to complete)](#part-5--github-actions-workflow-runs-to-complete)
+- [Part 5 — GitHub Actions Workflow Runs](#part-5--github-actions-workflow-runs)
 
 ---
 
@@ -79,25 +79,33 @@ Get-Content build/build-info.txt
 
 ---
 
-## Part 5 — GitHub Actions Workflow Runs (to complete)
+## Part 5 — GitHub Actions Workflow Runs
 
-GitHub only runs workflows from `.github/workflows/` at the **root** of a repository. To produce the run screenshots, push each demo as (or into) a repo whose root contains its `.github/workflows/` folder, then capture the **Actions** tab:
+GitHub only runs workflows from `.github/workflows/` at the **root** of a repository, so the seven Session 16 workflows were copied to the root of a dedicated public repo, together with the `09-build-test-pipeline` app (`app.py`, `tests/`, `requirements.txt`) that `build.yml` and `ci.yml` test:
 
-| # | Workflow                                             | Source                                                  | Needs                                                                                                      | Screenshot                    |
-|:--|:-----------------------------------------------------|:--------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------|:------------------------------|
-| 1 | Hello GitHub Actions                                 | `03-github-actions-intro …/.github/workflows/hello.yml` | —                                                                                                          | `SS/05-hello-actions.png`     |
-| 2 | Triggers (push / PR / dispatch / cron / path filter) | `04-workflows …/`                                       | —                                                                                                          | `SS/06-workflow-triggers.png` |
-| 3 | Jobs & steps (parallel / sequential / conditional)   | `05-jobs-steps …/.github/workflows/jobs-steps.yml`      | —                                                                                                          | `SS/07-jobs-steps.png`        |
-| 4 | Runners & matrix                                     | `06-runners …/.github/workflows/matrix-demo.yml`        | —                                                                                                          | `SS/08-matrix.png`            |
-| 5 | Secrets                                              | `07-secrets …/.github/workflows/secrets-demo.yml`       | repo secret `DEMO_SECRET` (and `DOCKER_USERNAME`/`DOCKER_PASSWORD`, `PROD_API_KEY` for the other examples) | `SS/09-secrets.png`           |
-| 6 | Artifacts                                            | `08-artifacts …/.github/workflows/artifacts-demo.yml`   | —                                                                                                          | `SS/10-artifacts.png`         |
-| 7 | CI pipeline (lint → test → build)                    | `09-build-test-pipeline …/.github/workflows/ci.yml`     | —                                                                                                          | `SS/11-ci-pipeline.png`       |
+**Repo:** <https://github.com/NeuralSynth/devops-heros-s16-actions> · **Actions:** <https://github.com/NeuralSynth/devops-heros-s16-actions/actions>
 
-Useful CLI checks once pushed:
+| Workflow | Source folder | Concept | Result |
+| :--- | :--- | :--- | :--- |
+| Hello World | 03-github-actions-intro | First workflow on `push` | ✅ |
+| Build and Test | 04-workflows | push/PR triggers, setup-python, pytest | ✅ |
+| Jobs and Steps Demonstration | 05-jobs-steps | Two jobs, multiple steps | ✅ |
+| Matrix Runner Demonstration | 06-runners | Matrix over Python 3.10 / 3.11 | ✅ (2 jobs) |
+| Secrets Demonstration | 07-secrets | `secrets.GITHUB_TOKEN` (never printed) | ✅ |
+| Artifacts Demonstration | 08-artifacts | `actions/upload-artifact` → `sample-artifact` | ✅ |
+| CI Pipeline | 09-build-test-pipeline | lint → test + coverage → artifacts `test-results`, `coverage-report` | ✅ |
 
-```bash
-gh workflow list
-gh workflow run ci.yml
-gh run list --limit 10
-gh run view <RUN_ID> --log
+All 7 workflows ran on the first push and passed.
+
+```powershell
+gh workflow list -R NeuralSynth/devops-heros-s16-actions
+gh run list      -R NeuralSynth/devops-heros-s16-actions --limit 7
+gh run view <RUN_ID> -R NeuralSynth/devops-heros-s16-actions          # jobs + artifacts
+gh run view <RUN_ID> -R NeuralSynth/devops-heros-s16-actions --log    # full logs
 ```
+
+![Part 5 — Workflow list and runs](./SS/05-github-actions-runs.png)
+![Part 5 — CI pipeline and matrix](./SS/06-ci-pipeline-and-matrix.png)
+![Part 5 — Artifacts, secrets and jobs](./SS/07-artifacts-secrets-jobs.png)
+
+> The runs show GitHub's notice that Node.js 20 actions (`actions/checkout@v4`, `setup-python@v5`, `upload-artifact@v4`) are being forced onto Node.js 24. They still pass; bumping to the next major versions removes the warning.
