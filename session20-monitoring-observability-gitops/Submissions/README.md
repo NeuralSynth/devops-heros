@@ -12,7 +12,8 @@ Verification of the three pillars of observability, Prometheus metrics and PromQ
 - [Part 2 — Prometheus & PromQL Queries](#part-2--prometheus--promql-queries)
 - [Part 3 — Prometheus + Grafana Stack](#part-3--prometheus--grafana-stack)
 - [Part 4 — Argo CD Installation](#part-4--argo-cd-installation)
-- [Part 5 — GitOps Flow (to complete)](#part-5--gitops-flow-to-complete)
+- [Part 5 — GitOps with Argo CD](#part-5--gitops-with-argo-cd)
+- [Part 6 — Mini-Project: session20-mini](#part-6--mini-project-session20-mini)
 
 ---
 
@@ -138,37 +139,97 @@ kubectl get svc -n argocd argocd-server
 
 ---
 
-## Part 5 — GitOps Flow (to complete)
+## Part 5 — GitOps with Argo CD
 
-Argo CD is installed and ready. The rest needs **your own Git repository**, because Argo CD watches the repo and you'll push changes to it.
+**GitOps source repo:** <https://github.com/NeuralSynth/devops-heros-s20-gitops> (local clone `D:\Classes\devops-heros-s20-gitops`)
 
-```bash
-# 1. Open the Argo CD UI
-kubectl port-forward svc/argocd-server -n argocd 8443:443      # → https://localhost:8443 (8080 is used by a local Apache service)
-# admin password:
-[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String((kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}")))
+| Path | Argo CD Application | Manifest in this repo |
+| :--- | :--- | :--- |
+| `app/` | `session20-app` | [`07-argocd/app/argocd-application.yaml`](../07-argocd/app/argocd-application.yaml) |
+| `mini/` | `session20-mini` | [`08-mini-project/app/argocd-application.yaml`](../08-mini-project/app/argocd-application.yaml) |
 
-# 2. Create a GitHub repo with an app/ folder (copy 07-argocd/app/deployment.yaml + service.yaml),
-#    then set repoURL in 07-argocd/app/argocd-application.yaml to YOUR repo
-#    (currently: https://github.com/Nency-Ravaliya/gitops-demo.git)
+Both Applications use `syncPolicy.automated` with `prune: true` and `selfHeal: true`. Their `repoURL` was changed from the instructor's / placeholder repo to the repo above. The GitOps repo starts at **2 replicas** so the Git change is visible.
 
-# 3. Register the application
-kubectl apply -f app/argocd-application.yaml
+### Stage 1 — Register the application (2 replicas)
+
+```powershell
+kubectl apply -f 07-argocd/app/argocd-application.yaml
 kubectl get applications -n argocd
-kubectl get pods -n session20                       # → SS/07-gitops-2-replicas.png
-
-# 4. GitOps change: edit replicas 2 → 5 in YOUR repo's app/deployment.yaml
-git add app/deployment.yaml
-git commit -m "Scale application from 2 to 5 replicas"
-git push
-kubectl get pods -n session20 -w                    # → SS/08-gitops-5-replicas.png
-
-# 5. Self-healing (selfHeal: true): manual drift is reverted
-kubectl scale deployment <name> -n session20 --replicas=1
-kubectl get deployment -n session20                 # back to the Git-declared count
+kubectl get pods -n session20 -l app=session20-gitops-app
 ```
 
-Screenshot the Argo CD dashboard (*Synced / Healthy*) as `SS/09-argocd-dashboard.png`. The same flow applies to `08-mini-project/` (`session20-mini`, scaled to 3 replicas).
+![Part 5 — GitOps 2 replicas](./SS/07-gitops-2-replicas.png)
+
+### Stage 2 — Change Git, not the cluster (2 → 5)
+
+```powershell
+cd D:\Classes\devops-heros-s20-gitops
+(Get-Content app/deployment.yaml) -replace 'replicas: 2', 'replicas: 5' | Set-Content app/deployment.yaml
+git add app/deployment.yaml
+git commit -m "Scale session20-app from 2 to 5 replicas"
+git push
+
+# Argo CD polls Git every ~3 min; ask for an immediate refresh instead of waiting
+kubectl annotate application session20-app -n argocd argocd.argoproj.io/refresh=normal --overwrite
+```
+
+**Result:** Argo CD syncs the pushed commit (`REVISION 3209a85…`, the same SHA as the `git push`), and the Deployment scales to **5/5** with no `kubectl apply`.
+
+> The GitOps repo's history was later rewritten to edit commit messages only (no file changes), so on GitHub this commit is now `a0c92ce` (was `3209a85`) and the repo head is `fe5e95b` (was `5176929`). Argo CD re-synced to the new head with no change to the cluster.
+
+![Part 5 — GitOps 5 replicas](./SS/08-gitops-5-replicas.png)
+
+### Stage 3 — Self-healing
+
+```powershell
+kubectl scale deployment session20-gitops-app -n session20 --replicas=1   # manual drift
+kubectl get deployment session20-gitops-app -n session20                   # 1/1 ...
+kubectl get deployment session20-gitops-app -n session20                   # ... back to 5/5
+```
+
+**Result:** `selfHeal: true` detects the drift from Git and restores **5/5** within seconds; the sync history grows (`0,1,2`).
+
+![Part 5 — Self-heal](./SS/09-gitops-self-heal.png)
+
+### Argo CD dashboard
+
+```powershell
+kubectl port-forward svc/argocd-server -n argocd 8443:443   # → https://localhost:8443  (8080 is used by a local Apache)
+```
+
+Both applications are **Healthy / Synced**, tracking `main` of the GitOps repo (`app` and `mini` paths, namespace `session20`).
+
+![Part 5 — Argo CD dashboard](./SS/11-argocd-dashboard.png)
+
+---
+
+## Part 6 — Mini-Project: session20-mini
+
+```powershell
+kubectl apply -f 08-mini-project/app/argocd-application.yaml
+kubectl get applications -n argocd
+kubectl get all -n session20 -l app=session20-mini
+
+# Git change 2 → 3 in the GitOps repo
+(Get-Content mini/deployment.yaml) -replace 'replicas: 2', 'replicas: 3' | Set-Content mini/deployment.yaml
+git add mini/deployment.yaml; git commit -m "Scale application to three replicas"; git push
+kubectl annotate application session20-mini -n argocd argocd.argoproj.io/refresh=normal --overwrite
+
+# Self-healing
+kubectl scale deployment session20-mini -n session20 --replicas=1
+kubectl get deployment session20-mini -n session20      # back to 3/3
+kubectl logs deployment/session20-mini -n session20 --tail=5
+kubectl get application session20-mini -n argocd
+```
+
+![Part 6 — Mini-project deployed](./SS/10-mini-project-01-deployed.png)
+![Part 6 — Git change and self-heal](./SS/10-mini-project-02-git-change-self-heal.png)
+
+### Viva notes
+
+- **Git is the source of truth:** the cluster changed only because Git changed; manual edits are reverted.
+- **Pull model:** Argo CD runs inside the cluster and *pulls* from Git. CI never needs cluster credentials.
+- **Audit and rollback:** every change is a commit; reverting a commit rolls the cluster back.
 
 ---
 
